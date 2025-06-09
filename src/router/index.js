@@ -13,7 +13,10 @@ const router = createRouter({
     {
       path: '/flights',
       name: 'flight-results',
-      component: FlightResultsPage
+      component: FlightResultsPage,
+      props: route => ({
+        searchParams: route.query
+      })
     }
   ],
   scrollBehavior(to, from, savedPosition) {

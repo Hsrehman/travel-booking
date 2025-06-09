@@ -2,36 +2,149 @@
   <div class="bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto">
       <div class="bg-white p-6 rounded-lg shadow-sm space-y-6">
-        <!-- Trip Type Buttons -->
-        <div class="flex space-x-2 mb-4">
-          <button 
-            @click="setTripType('oneWay')"
-            :class="[
-              'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
-              tripType === 'oneWay' 
-                ? 'bg-blue-500 text-white border-blue-500' 
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            ]"
-          >One Way</button>
-          <button 
-            @click="setTripType('return')"
-            :class="[
-              'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
-              tripType === 'return' 
-                ? 'bg-blue-500 text-white border-blue-500' 
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            ]"
-          >Return</button>
-          <button 
-            @click="setTripType('multiCity')"
-            :class="[
-              'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
-              tripType === 'multiCity' 
-                ? 'bg-blue-500 text-white border-blue-500' 
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            ]"
-          >Multi City</button>
+        <!-- Trip Type Buttons and Options -->
+        <div class="flex items-center space-x-6 mb-4">
+          <div class="flex space-x-2">
+            <button 
+              @click="setTripType('oneWay')"
+              :class="[
+                'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
+                tripType === 'oneWay' 
+                  ? 'bg-blue-500 text-white border-blue-500' 
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              ]"
+            >One Way</button>
+            <button 
+              @click="setTripType('return')"
+              :class="[
+                'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
+                tripType === 'return' 
+                  ? 'bg-blue-500 text-white border-blue-500' 
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              ]"
+            >Return</button>
+            <button 
+              @click="setTripType('multiCity')"
+              :class="[
+                'px-3 py-1 text-sm border rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500',
+                tripType === 'multiCity' 
+                  ? 'bg-blue-500 text-white border-blue-500' 
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              ]"
+            >Multi City</button>
+          </div>
+
+          <!-- Passengers Dropdown -->
+          <div class="relative">
+            <button 
+              @click="togglePassengersDropdown"
+              class="text-sm text-gray-700 flex items-center focus:outline-none"
+            >
+              <span class="mr-1">{{ passengers.adults + passengers.children + passengers.infants }}</span>
+              <span class="mr-1">Passengers</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            <div v-if="showPassengersDropdown" class="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+              <div class="p-4 space-y-4">
+                <!-- Adults -->
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium">Adults</div>
+                    <div class="text-xs text-gray-500">12+ years</div>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click.stop="decrementPassenger('adults')" 
+                      :disabled="passengers.adults <= 1"
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >-</button>
+                    <span>{{ passengers.adults }}</span>
+                    <button 
+                      @click.stop="incrementPassenger('adults')" 
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100"
+                    >+</button>
+                  </div>
+                </div>
+                <!-- Children -->
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium">Children</div>
+                    <div class="text-xs text-gray-500">2-11 years</div>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click.stop="decrementPassenger('children')" 
+                      :disabled="passengers.children <= 0"
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >-</button>
+                    <span>{{ passengers.children }}</span>
+                    <button 
+                      @click.stop="incrementPassenger('children')" 
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100"
+                    >+</button>
+                  </div>
+                </div>
+                <!-- Infants -->
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-medium">Infants</div>
+                    <div class="text-xs text-gray-500">0-23 months</div>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click.stop="decrementPassenger('infants')" 
+                      :disabled="passengers.infants <= 0"
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >-</button>
+                    <span>{{ passengers.infants }}</span>
+                    <button 
+                      @click.stop="incrementPassenger('infants')" 
+                      :disabled="passengers.infants >= passengers.adults"
+                      class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >+</button>
+                  </div>
+                </div>
+                <div class="pt-2 border-t border-gray-200">
+                  <button 
+                    @click.stop="applyPassengers"
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cabin Class Dropdown -->
+          <div class="relative">
+            <button 
+              @click="toggleCabinDropdown"
+              class="text-sm text-gray-700 flex items-center focus:outline-none"
+            >
+              <span class="mr-1">{{ cabinClass }}</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            <div v-if="showCabinDropdown" class="absolute left-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+              <div class="py-1">
+                <button 
+                  v-for="cabin in ['Economy', 'Premium Economy', 'Business', 'First']" 
+                  :key="cabin"
+                  @click="selectCabinClass(cabin)"
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  :class="{ 'bg-blue-50': cabin === cabinClass }"
+                >
+                  {{ cabin }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+
         <!-- Search Form -->
         <div class="space-y-4">
           <div class="flex items-center space-x-4">
@@ -150,154 +263,9 @@
                 <!-- Spacer div when in one-way mode to maintain layout -->
                 <div v-else class="flex-1"></div>
               </div>
-              
-              <!-- Class and Passengers Selection -->
-              <div class="flex items-center space-x-4 mt-4">
-                <!-- Cabin Class Dropdown -->
-                <div class="flex-1 relative">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                  <div class="relative">
-                    <button 
-                      @click="toggleCabinDropdown"
-                      class="w-full px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <span>{{ cabinClassDisplay }}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    <!-- Cabin Class Dropdown Menu -->
-                    <div v-if="showCabinDropdown" class="absolute left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-                      <div class="p-2">
-                        <div 
-                          v-for="option in cabinOptions" 
-                          :key="option.value"
-                          @click="selectCabinClass(option.value)"
-                          class="p-2 hover:bg-gray-100 rounded cursor-pointer flex items-center"
-                        >
-                          <div class="h-4 w-4 rounded-full border border-gray-300 flex items-center justify-center mr-2">
-                            <div v-if="cabinClass === option.value" class="h-2 w-2 rounded-full bg-blue-500"></div>
-                          </div>
-                          <span>{{ option.label }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Passengers Dropdown -->
-                <div class="flex-1 relative">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
-                  <div class="relative">
-                    <button 
-                      @click="togglePassengersDropdown"
-                      class="w-full px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <span>{{ passengersDisplay }}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    <!-- Passenger Selection Dropdown -->
-                    <div v-if="showPassengersDropdown" class="absolute left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-                      <div class="p-4 space-y-4">
-                        <!-- Adults -->
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <div class="font-medium">Adults</div>
-                            <div class="text-xs text-gray-500">12 years and above</div>
-                          </div>
-                          <div class="flex items-center space-x-3">
-                            <button 
-                              @click.prevent="decrementPassenger('adults')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center" 
-                              :class="{ 'opacity-50 cursor-not-allowed': passengers.adults <= 1 }"
-                              :disabled="passengers.adults <= 1"
-                            >
-                              <span class="text-xl leading-none">−</span>
-                            </button>
-                            <span class="w-4 text-center">{{ passengers.adults }}</span>
-                            <button 
-                              @click.prevent="incrementPassenger('adults')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-                              :class="{ 'opacity-50 cursor-not-allowed': totalPassengers >= 9 }"
-                              :disabled="totalPassengers >= 9"
-                            >
-                              <span class="text-xl leading-none">+</span>
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <!-- Children -->
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <div class="font-medium">Children</div>
-                            <div class="text-xs text-gray-500">2 to 11 years</div>
-                          </div>
-                          <div class="flex items-center space-x-3">
-                            <button 
-                              @click.prevent="decrementPassenger('children')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center" 
-                              :class="{ 'opacity-50 cursor-not-allowed': passengers.children <= 0 }"
-                              :disabled="passengers.children <= 0"
-                            >
-                              <span class="text-xl leading-none">−</span>
-                            </button>
-                            <span class="w-4 text-center">{{ passengers.children }}</span>
-                            <button 
-                              @click.prevent="incrementPassenger('children')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-                              :class="{ 'opacity-50 cursor-not-allowed': totalPassengers >= 9 }"
-                              :disabled="totalPassengers >= 9"
-                            >
-                              <span class="text-xl leading-none">+</span>
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <!-- Infants -->
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <div class="font-medium">Infants</div>
-                            <div class="text-xs text-gray-500">7 days to 23 months</div>
-                          </div>
-                          <div class="flex items-center space-x-3">
-                            <button 
-                              @click.prevent="decrementPassenger('infants')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center" 
-                              :class="{ 'opacity-50 cursor-not-allowed': passengers.infants <= 0 }"
-                              :disabled="passengers.infants <= 0"
-                            >
-                              <span class="text-xl leading-none">−</span>
-                            </button>
-                            <span class="w-4 text-center">{{ passengers.infants }}</span>
-                            <button 
-                              @click.prevent="incrementPassenger('infants')"
-                              class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-                              :class="{ 'opacity-50 cursor-not-allowed': passengers.infants >= passengers.adults || totalPassengers >= 9 }"
-                              :disabled="passengers.infants >= passengers.adults || totalPassengers >= 9"
-                            >
-                              <span class="text-xl leading-none">+</span>
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <button 
-                          @click="applyPassengers"
-                          class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Date Picker Overlay -->
-              <Transition name="fade">
+            
+             <!-- Date Picker Overlay -->
+             <Transition name="fade">
                 <div v-if="showDatePicker" class="date-picker-wrapper">
                   <div class="date-picker-container">
                     <Datepicker
@@ -308,8 +276,8 @@
                       auto-apply
                       inline
                       :month-change-on-scroll="false"
-                      :two-months="tripType !== 'oneWay'"
-                      :multi-calendars="tripType !== 'oneWay'"
+                      :two-months="true"
+                      :multi-calendars="true"
                       :calendar-cell-class-name="'dp__calendar-item'"
                       @closed="closeDatePicker"
                       @update:model-value="handleDateSelection"
@@ -354,14 +322,23 @@ const toQuery = ref('');
 const dates = ref(null);
 const tripType = ref('return');
 
-// Cabin class options
-const cabinClass = ref('E'); // Default to Economy
+// Cabin class state
+const cabinClass = ref('Economy');
 const showCabinDropdown = ref(false);
-const cabinOptions = [
-  { value: 'E', label: 'Economy' },
-  { value: 'B', label: 'Business' },
-  { value: 'F', label: 'First' }
-];
+
+// Toggle functions for dropdowns
+function toggleCabinDropdown() {
+  showCabinDropdown.value = !showCabinDropdown.value;
+  if (showCabinDropdown.value) {
+    showPassengersDropdown.value = false;
+  }
+}
+
+// Cabin class selection
+function selectCabinClass(value) {
+  cabinClass.value = value;
+  showCabinDropdown.value = false;
+}
 
 // Passengers data
 const passengers = ref({
@@ -477,8 +454,7 @@ const returnDate = computed(() => {
 
 // Computed properties for cabin class and passengers display
 const cabinClassDisplay = computed(() => {
-  const selectedOption = cabinOptions.find(option => option.value === cabinClass.value);
-  return selectedOption ? selectedOption.label : 'Economy';
+  return cabinClass.value;
 });
 
 const totalPassengers = computed(() => {
@@ -503,24 +479,11 @@ const passengersDisplay = computed(() => {
 });
 
 // Toggle functions for dropdowns
-function toggleCabinDropdown() {
-  showCabinDropdown.value = !showCabinDropdown.value;
-  if (showCabinDropdown.value) {
-    showPassengersDropdown.value = false;
-  }
-}
-
 function togglePassengersDropdown() {
   showPassengersDropdown.value = !showPassengersDropdown.value;
   if (showPassengersDropdown.value) {
     showCabinDropdown.value = false;
   }
-}
-
-// Cabin class selection
-function selectCabinClass(value) {
-  cabinClass.value = value;
-  showCabinDropdown.value = false;
 }
 
 // Passenger management functions
@@ -558,9 +521,18 @@ function handleSearch() {
     return;
   }
 
+  // Convert cabin class to the format expected by the API (E, P, B, F)
+  const cabinClassMap = {
+    'Economy': 'E',
+    'Premium Economy': 'P',
+    'Business': 'B',
+    'First': 'F'
+  };
+
   // Convert passenger counts to the format expected by the API
   const passengersList = [];
   
+  // Add adults
   if (passengers.value.adults > 0) {
     passengersList.push({
       type: 'adult',
@@ -569,68 +541,43 @@ function handleSearch() {
     });
   }
   
+  // Add children with ages
   if (passengers.value.children > 0) {
-    passengersList.push({
-      type: 'child',
-      count: passengers.value.children,
-      age: 8 // Default child age
-    });
+    // For simplicity, we're using a default age of 8 for all children
+    // In a real app, you might want to collect individual ages
+    for (let i = 0; i < passengers.value.children; i++) {
+      passengersList.push({
+        type: 'child',
+        count: 1,
+        age: 8 // Default child age
+      });
+    }
   }
   
+  // Add infants with ages
   if (passengers.value.infants > 0) {
-    passengersList.push({
-      type: 'infant',
-      count: passengers.value.infants,
-      age: 1 // Default infant age
-    });
+    // Infants must be accompanied by adults
+    const maxInfants = Math.min(passengers.value.adults, passengers.value.infants);
+    for (let i = 0; i < maxInfants; i++) {
+      passengersList.push({
+        type: 'infant',
+        count: 1,
+        age: 1 // Default infant age
+      });
+    }
   }
 
   const searchParams = {
     from: selectedFromLocation.value.iataCode,
     to: selectedToLocation.value.iataCode,
-    departDate: formatDate(Array.isArray(dates.value) ? dates.value[0] : dates.value, true), // API format
-    returnDate: Array.isArray(dates.value) && dates.value[1] ? formatDate(dates.value[1], true) : null, // API format
+    departDate: formatDate(Array.isArray(dates.value) ? dates.value[0] : dates.value, true),
+    returnDate: Array.isArray(dates.value) && dates.value[1] ? formatDate(dates.value[1], true) : null,
     passengers: passengersList,
-    cabin: cabinClass.value
+    cabin: cabinClassMap[cabinClass.value] || 'E' // Default to Economy if not found
   };
 
+  console.log('Search params:', searchParams);
   emit('search', searchParams);
-}
-
-// Function to set trip type
-function setTripType(type) {
-  tripType.value = type;
-  
-  // Reset dates when changing trip type
-  if (type === 'oneWay') {
-    // For one-way, convert to single date if we had a range before
-    if (Array.isArray(dates.value) && dates.value.length > 0) {
-      dates.value = dates.value[0];
-      // If the date is invalid (Jan 1, 1970), set to null
-      if (dates.value && dates.value.getTime() === 0) {
-        dates.value = null;
-      }
-    }
-  } else if (type === 'return') {
-    // For return, convert to array if we had a single date
-    if (!Array.isArray(dates.value)) {
-      if (dates.value) {
-        // If the date is invalid (Jan 1, 1970), set to null
-        if (dates.value.getTime() === 0) {
-          dates.value = [null, null];
-        } else {
-          dates.value = [dates.value, null];
-        }
-      } else {
-        dates.value = [null, null];
-      }
-    }
-  } else if (type === 'multiCity') {
-    // For multi-city, we'd implement additional logic here
-    // This is a placeholder for future implementation
-    alert('Multi-city booking is not implemented yet');
-    tripType.value = 'return'; // Fallback to return for now
-  }
 }
 
 // Select location handlers
@@ -705,6 +652,42 @@ function handleDateSelection(selectedDates) {
       dates.value = selectedDates;
       closeDatePicker();
     }
+  }
+}
+
+// Function to set trip type
+function setTripType(type) {
+  tripType.value = type;
+  
+  // Reset dates when changing trip type
+  if (type === 'oneWay') {
+    // For one-way, convert to single date if we had a range before
+    if (Array.isArray(dates.value) && dates.value.length > 0) {
+      dates.value = dates.value[0];
+      // If the date is invalid (Jan 1, 1970), set to null
+      if (dates.value && dates.value.getTime() === 0) {
+        dates.value = null;
+      }
+    }
+  } else if (type === 'return') {
+    // For return, convert to array if we had a single date
+    if (!Array.isArray(dates.value)) {
+      if (dates.value) {
+        // If the date is invalid (Jan 1, 1970), set to null
+        if (dates.value.getTime() === 0) {
+          dates.value = [null, null];
+        } else {
+          dates.value = [dates.value, null];
+        }
+      } else {
+        dates.value = [null, null];
+      }
+    }
+  } else if (type === 'multiCity') {
+    // For multi-city, we'd implement additional logic here
+    // This is a placeholder for future implementation
+    alert('Multi-city booking is not implemented yet');
+    tripType.value = 'return'; // Fallback to return for now
   }
 }
 

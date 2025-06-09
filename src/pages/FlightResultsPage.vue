@@ -125,15 +125,11 @@ const processedFlights = computed(() => {
       stops: flight.outboundFlights.length - 1,
       price: flight.price,
       currency: flight.currency,
-      aircraft: firstLeg.aircraft || 'Boeing 737',
-      baggage: '23kg included', // This should come from API
-      seatsLeft: Math.floor(Math.random() * 9) + 1, // This should come from API
       layover: flight.outboundFlights.length > 1 ? {
         duration: firstLeg.connectionTime,
         airport: flight.outboundFlights[1].departureAirport
       } : null,
-      segments: segments,
-      freeCancellation: false // This should come from API
+      segments: segments
     };
   });
 })
