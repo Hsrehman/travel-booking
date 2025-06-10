@@ -227,7 +227,7 @@
             </div>
 
             <!-- Date Fields Container -->
-            <div class="flex-[1.4] relative">
+            <div class="flex-[1.0] relative">
               <div class="flex space-x-4">
                 <!-- Departure Date -->
                 <div class="flex-1">
@@ -263,6 +263,7 @@
                 <!-- Spacer div when in one-way mode to maintain layout -->
                 <div v-else class="flex-1"></div>
               </div>
+              
             
              <!-- Date Picker Overlay -->
              <Transition name="fade">
@@ -291,10 +292,7 @@
                 <div v-if="showDatePicker" class="fixed inset-0 bg-black bg-opacity-30 z-40" @click="closeDatePicker"></div>
               </Transition>
             </div>
-          </div>
-
-          <!-- Search Button -->
-          <div class="flex justify-center mt-6">
+            <div class="flex justify-center mt-6">
             <button
               @click="handleSearch"
               class="px-12 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg font-medium"
@@ -302,6 +300,11 @@
               Search Flights
             </button>
           </div>
+          </div>
+
+
+          <!-- Search Button -->
+          
         </div>
       </div>
     </div>
@@ -309,21 +312,36 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { searchAirports } from '../utils/api';
 import Datepicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 
-const emit = defineEmits(['search']);
+// Props definition
+const props = defineProps({
+  initialSearchParams: {
+    type: Object,
+    default: () => ({})
+  }
+});
 
-// Search form data
+// Emit events to parent components
+const emit = defineEmits(['search-submitted']);
+
+// Search form data - explicitly list properties to avoid reactivity issues
 const fromQuery = ref('');
 const toQuery = ref('');
-const dates = ref(null);
-const tripType = ref('return');
+const tripType = ref(props.initialSearchParams.tripType || 'return');
+
+// Set from/to airports in UI - these will be set in onMounted
+const fromLocation = ref(null);
+const toLocation = ref(null);
+
+// Calendar dates
+const dates = ref(initializeDates());
 
 // Cabin class state
-const cabinClass = ref('Economy');
+const cabinClass = ref(props.initialSearchParams.cabinClass || 'Economy');
 const showCabinDropdown = ref(false);
 
 // Toggle functions for dropdowns
@@ -340,19 +358,21 @@ function selectCabinClass(value) {
   showCabinDropdown.value = false;
 }
 
-// Passengers data
+// Passengers state - will be initialized from props in onMounted
 const passengers = ref({
   adults: 1,
   children: 0,
   infants: 0
 });
+
+// Make sure passenger counts from props are applied
 const showPassengersDropdown = ref(false);
 
 // Search results
 const fromResults = ref([]);
 const toResults = ref([]);
-const selectedFromLocation = ref(null);
-const selectedToLocation = ref(null);
+const selectedFromLocation = ref(props.initialSearchParams.from || null);
+const selectedToLocation = ref(props.initialSearchParams.to || null);
 const showFromResults = ref(false);
 const showToResults = ref(false);
 
@@ -516,68 +536,48 @@ function applyPassengers() {
 
 // Handle search submission
 function handleSearch() {
-  if (!selectedFromLocation.value || !selectedToLocation.value || !dates.value) {
-    alert('Please fill in all required fields');
+  // Validate all required fields are filled in
+  if (!selectedFromLocation.value || !selectedFromLocation.value.iataCode) {
+    alert('Please select a departure city or airport');
     return;
   }
 
-  // Convert cabin class to the format expected by the API (E, P, B, F)
-  const cabinClassMap = {
-    'Economy': 'E',
-    'Premium Economy': 'P',
-    'Business': 'B',
-    'First': 'F'
-  };
-
-  // Convert passenger counts to the format expected by the API
-  const passengersList = [];
-  
-  // Add adults
-  if (passengers.value.adults > 0) {
-    passengersList.push({
-      type: 'adult',
-      count: passengers.value.adults,
-      age: 30 // Default adult age
-    });
-  }
-  
-  // Add children with ages
-  if (passengers.value.children > 0) {
-    // For simplicity, we're using a default age of 8 for all children
-    // In a real app, you might want to collect individual ages
-    for (let i = 0; i < passengers.value.children; i++) {
-      passengersList.push({
-        type: 'child',
-        count: 1,
-        age: 8 // Default child age
-      });
-    }
-  }
-  
-  // Add infants with ages
-  if (passengers.value.infants > 0) {
-    // Infants must be accompanied by adults
-    const maxInfants = Math.min(passengers.value.adults, passengers.value.infants);
-    for (let i = 0; i < maxInfants; i++) {
-      passengersList.push({
-        type: 'infant',
-        count: 1,
-        age: 1 // Default infant age
-      });
-    }
+  if (!selectedToLocation.value || !selectedToLocation.value.iataCode) {
+    alert('Please select a destination city or airport');
+    return;
   }
 
+  // Prepare search parameters
   const searchParams = {
     from: selectedFromLocation.value.iataCode,
-    to: selectedToLocation.value.iataCode,
+    fromName: selectedFromLocation.value.mainLine,
+    fromSubLine: selectedFromLocation.value.subLine || '',
+    to: selectedToLocation.value.iataCode, 
+    toName: selectedToLocation.value.mainLine,
+    toSubLine: selectedToLocation.value.subLine || '',
     departDate: formatDate(Array.isArray(dates.value) ? dates.value[0] : dates.value, true),
-    returnDate: Array.isArray(dates.value) && dates.value[1] ? formatDate(dates.value[1], true) : null,
-    passengers: passengersList,
-    cabin: cabinClassMap[cabinClass.value] || 'E' // Default to Economy if not found
+    // Set returnDate only if tripType is 'return' and dates is an array
+    ...(tripType.value === 'return' && Array.isArray(dates.value) && dates.value[1] && 
+        { returnDate: formatDate(dates.value[1], true) }),
+    tripType: tripType.value,
+    cabin: getCabinClassCode(cabinClass.value),
+    cabinClass: cabinClass.value,
+    adults: passengers.value.adults,
+    children: passengers.value.children,
+    infants: passengers.value.infants
   };
 
-  console.log('Search params:', searchParams);
-  emit('search', searchParams);
+  // Save search parameters to localStorage
+  localStorage.setItem('flightSearchParams', JSON.stringify(searchParams));
+  
+  // Emit search event to parent component
+  emit('search-submitted', searchParams);
+  
+  // If we're on the home page (not being used as a component inside flight results)
+  // then navigate to the flight results page without query parameters
+  if (!window.location.href.includes('flights')) {
+    window.location.href = '/flights';
+  }
 }
 
 // Select location handlers
@@ -691,8 +691,131 @@ function setTripType(type) {
   }
 }
 
+// Function to initialize dates from props or default
+function initializeDates() {
+  // If initialSearchParams has dates
+  if (props.initialSearchParams.dates) {
+    // If it's an array (for return flights)
+    if (Array.isArray(props.initialSearchParams.dates)) {
+      return props.initialSearchParams.dates.map(date => 
+        typeof date === 'string' ? new Date(date) : date
+      );
+    }
+    // If it's a single date (for one way)
+    else {
+      const date = new Date(props.initialSearchParams.dates);
+      return props.initialSearchParams.tripType === 'oneWay' 
+        ? date 
+        : [date, new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000)]; // Add 7 days for return
+    }
+  } 
+  // Default dates
+  else {
+    if (tripType.value === 'oneWay') {
+      return new Date();
+    } else {
+      return [
+        new Date(),
+        new Date(new Date().setDate(new Date().getDate() + 7))
+      ];
+    }
+  }
+}
+
+// Helper function to convert cabin class to code
+function getCabinClassCode(cabinClass) {
+  const cabinMap = {
+    'Economy': 'E',
+    'Premium Economy': 'P',
+    'Business': 'B',
+    'First': 'F'
+  };
+  return cabinMap[cabinClass] || 'E';
+}
+
 onMounted(() => {
-  console.log('BookingSection mounted');
+  console.log('BookingSection mounted with initial params:', props.initialSearchParams);
+  
+  // Force initialize all form fields directly from props
+  try {
+    // Airport fields
+    if (props.initialSearchParams.from) {
+      fromLocation.value = {...props.initialSearchParams.from};
+      fromQuery.value = props.initialSearchParams.from.mainLine || '';
+      console.log('Set from location to:', fromQuery.value);
+    }
+    
+    if (props.initialSearchParams.to) {
+      toLocation.value = {...props.initialSearchParams.to};
+      toQuery.value = props.initialSearchParams.to.mainLine || '';
+      console.log('Set to location to:', toQuery.value);
+    }
+    
+    // Trip type (one-way/return)
+    if (props.initialSearchParams.tripType) {
+      tripType.value = props.initialSearchParams.tripType;
+    }
+    
+    // Passenger counts
+    if (props.initialSearchParams.passengers) {
+      passengers.value = {
+        adults: props.initialSearchParams.passengers.adults || 1,
+        children: props.initialSearchParams.passengers.children || 0,
+        infants: props.initialSearchParams.passengers.infants || 0
+      };
+    }
+    
+    // Cabin class
+    if (props.initialSearchParams.cabinClass) {
+      cabinClass.value = props.initialSearchParams.cabinClass;
+    }
+    
+    // Ensure dates are set
+    if (props.initialSearchParams.dates) {
+      console.log('Setting dates from props:', props.initialSearchParams.dates);
+      
+      // Handle dates properly regardless of format
+      try {
+        if (Array.isArray(props.initialSearchParams.dates)) {
+          dates.value = props.initialSearchParams.dates.map(date => 
+            date instanceof Date ? date : new Date(date)
+          );
+        } else {
+          // For one-way trips
+          dates.value = props.initialSearchParams.dates instanceof Date ? 
+            props.initialSearchParams.dates : new Date(props.initialSearchParams.dates);
+        }
+        console.log('Dates successfully set to:', dates.value);
+      } catch (err) {
+        console.error('Error setting dates:', err);
+        // Fallback to default dates
+        initializeDates();
+      }
+    }
+    
+    // Force a UI update
+    nextTick(() => {
+      console.log('Form values after initialization:', {
+        fromQuery: fromQuery.value,
+        toQuery: toQuery.value,
+        tripType: tripType.value,
+        dates: dates.value,
+        passengers: passengers.value,
+        cabinClass: cabinClass.value
+      });
+    });
+  } catch (error) {
+    console.error('Error initializing form:', error);
+  }
+  
+  console.log('Form initialized with:', {
+    from: fromLocation.value,
+    to: toLocation.value,
+    dates: dates.value,
+    passengers: passengers.value,
+    tripType: tripType.value,
+    cabinClass: cabinClass.value
+  });
 });
 </script>
 

@@ -32,46 +32,44 @@ export const searchFlights = async (params) => {
     const cabinClass = params.cabinClass?.toUpperCase() || 'E';
     
     // Process passenger data for our backend API
-    // Ensure passengers is always an array with at least one passenger
-    let passengers = [];
+    // Handle passenger data as an object with counts (from BookingSection.vue)
+    let processedPassengers = { adults: 1, children: 0, infants: 0 };
     
-    if (params.passengers && Array.isArray(params.passengers) && params.passengers.length > 0) {
-      passengers = params.passengers;
-    } else {
-      // Default passenger if none provided
-      passengers = [{ type: 'adult', age: 30, count: 1 }];
-    }
-    
-    // Map ages based on passenger types if age not explicitly provided
-    const defaultAges = {
-      'adult': 30,
-      'child': 8,
-      'infant': 1
-    };
-    
-    // Process passengers to match the expected format
-    const processedPassengers = [];
-    
-    // Ensure we're working with an array before calling forEach
-    if (Array.isArray(passengers)) {
-      passengers.forEach(passenger => {
-        const passengerAge = passenger.age || defaultAges[passenger.type?.toLowerCase()] || 30;
-        const count = passenger.count || 1;
+    // Check if we have passenger data in the expected format
+    if (params.adults !== undefined || params.children !== undefined || params.infants !== undefined) {
+      // Direct adult, child, infant parameters
+      processedPassengers = {
+        adults: parseInt(params.adults || 1),
+        children: parseInt(params.children || 0),
+        infants: parseInt(params.infants || 0)
+      };
+    } else if (params.passengers) {
+      // Check if passengers is already in the right format
+      if (params.passengers.adults !== undefined) {
+        processedPassengers = {
+          adults: parseInt(params.passengers.adults || 1),
+          children: parseInt(params.passengers.children || 0),
+          infants: parseInt(params.passengers.infants || 0)
+        };
+      } else if (Array.isArray(params.passengers)) {
+        // Legacy format: convert array to counts
+        const types = { adult: 0, child: 0, infant: 0 };
         
-        // Create individual passenger entries based on count
-        for (let i = 0; i < count; i++) {
-          processedPassengers.push({
-            age: passengerAge,
-            type: passenger.type || 'adult'
-          });
-        }
-      });
-    } else {
-      // Handle case where passengers is not an array by adding a default passenger
-      processedPassengers.push({
-        age: 30,
-        type: 'adult'
-      });
+        params.passengers.forEach(passenger => {
+          const type = passenger.type?.toLowerCase() || 'adult';
+          const count = passenger.count || 1;
+          
+          if (type === 'adult') types.adult += count;
+          else if (type === 'child') types.child += count;
+          else if (type === 'infant') types.infant += count;
+        });
+        
+        processedPassengers = {
+          adults: types.adult || 1,  // Ensure at least 1 adult
+          children: types.child || 0,
+          infants: types.infant || 0
+        };
+      }
     }
     
     // Create JSON payload for our backend API
@@ -218,6 +216,41 @@ export const searchFlights = async (params) => {
               addPrices(inboundLegs);
             }
             
+            // Helper function to process baggage allowance information
+            const processBaggageInfo = (leg) => {
+              // Check if BaggageAllowance exists and is not empty
+              if (!leg.BaggageAllowance || !leg.BaggageAllowance.Bag) {
+                // Return a default object for flights with no baggage info
+                return { type: 'default', value: 'Contact airline', units: '', included: false };
+              }
+              
+              const bags = Array.isArray(leg.BaggageAllowance.Bag) ? leg.BaggageAllowance.Bag : [leg.BaggageAllowance.Bag];
+              
+              // If bags array is empty, return default message
+              if (bags.length === 0) {
+                return { type: 'default', value: 'Contact airline', units: '', included: false };
+              }
+              
+              // Try to find adult bag first
+              const adultBag = bags.find(bag => bag.PaxType && bag.PaxType.toLowerCase() === 'adult');
+              const bagToUse = adultBag || bags[0];
+              
+              if (bagToUse) {
+                // The baggage value is in the text content of the Bag element
+                const baggageValue = typeof bagToUse === 'string' ? bagToUse : 
+                                   (bagToUse.text || bagToUse.textContent || bagToUse['#text'] || '');
+                
+                return { 
+                  type: bagToUse.Type || 'weight', // Default to 'weight' if type not specified
+                  value: baggageValue,
+                  units: bagToUse.Units || 'kg', // Default to 'kg' if units not specified
+                  included: true
+                };
+              }
+              
+              return { type: 'default', value: 'Contact airline', units: '', included: false };
+            };
+            
             // Helper function to calculate flight duration in minutes
             const calculateDuration = (departureDate, departureTime, arrivalDate, arrivalTime) => {
               if (!departureDate || !departureTime || !arrivalDate || !arrivalTime) {
@@ -255,7 +288,8 @@ export const searchFlights = async (params) => {
                 cabinClass: leg.CabinClass,
                 stops: parseInt(leg.NumberOfStops || '0'),
                 duration: legDuration, // Flight duration in minutes
-                connectionTime: 0 // Will be calculated below for multi-leg journeys
+                connectionTime: 0, // Will be calculated below for multi-leg journeys
+                baggageAllowance: processBaggageInfo(leg) // Extract baggage allowance info
               };
             });
             
@@ -300,7 +334,8 @@ export const searchFlights = async (params) => {
                     cabinClass: leg.CabinClass,
                     stops: parseInt(leg.NumberOfStops || '0'),
                     duration: legDuration, // Flight duration in minutes
-                    connectionTime: 0 // Will be calculated below for multi-leg journeys
+                    connectionTime: 0, // Will be calculated below for multi-leg journeys
+                    baggageAllowance: processBaggageInfo(leg) // Extract baggage allowance info
                   };
                 });
                 

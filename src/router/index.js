@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../pages/HomePage.vue'
 import FlightResultsPage from '../pages/FlightResultsPage.vue'
+import SearchModificationTestPage from '../pages/SearchModificationTestPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,6 +18,11 @@ const router = createRouter({
       props: route => ({
         searchParams: route.query
       })
+    },
+    {
+      path: '/test-search-modification',
+      name: 'test-search-modification',
+      component: SearchModificationTestPage
     }
   ],
   scrollBehavior(to, from, savedPosition) {

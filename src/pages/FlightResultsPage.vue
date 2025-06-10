@@ -1,19 +1,14 @@
 <template>
   <div class="min-h-screen" style="background: linear-gradient(160deg, #f8fafc 0%, #e0f2fe 100%);">
+    <!-- Persistent Search Form -->  
+    <div class="search-form-container bg-gray-50 border-b border-gray-200">
+      <BookingSection 
+        :initialSearchParams="transformSearchParams"
+        @search-submitted="handleModifiedSearch"
+      />
+    </div>
+    
     <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <!-- Search Summary -->
-      <div class="bg-white shadow rounded-lg p-6 mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 mb-4">Flight Search Results</h2>
-        <div class="flex items-center space-x-4 text-gray-600">
-          <span>{{ searchParams.from }} → {{ searchParams.to }}</span>
-          <span>|</span>
-          <span>{{ searchParams.departDate }}</span>
-          <span v-if="searchParams.returnDate">
-            <span>|</span>
-            <span>Return: {{ searchParams.returnDate }}</span>
-          </span>
-        </div>
-      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-12">
@@ -76,6 +71,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchFlights } from '../utils/api'
 import FlightResults from '../components/FlightResults.vue'
+import BookingSection from '../components/BookingSection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,15 +125,26 @@ const processedFlights = computed(() => {
         duration: firstLeg.connectionTime,
         airport: flight.outboundFlights[1].departureAirport
       } : null,
-      segments: segments
+      segments: segments,
+      // Include the baggage allowance information from the first leg
+      baggageAllowance: firstLeg.baggageAllowance
     };
   });
 })
 
 onMounted(async () => {
-  // Get search parameters from route query
-  searchParams.value = route.query
+  // Load search parameters from localStorage
+  const storedParams = localStorage.getItem('flightSearchParams');
+  
+  if (storedParams) {
+    searchParams.value = JSON.parse(storedParams);
+  } else {
+    // Fallback to URL parameters for backward compatibility
+    searchParams.value = route.query;
+  }
 
+  console.log('Loaded search params:', searchParams.value);
+  
   try {
     loading.value = true
     error.value = null
@@ -150,7 +157,11 @@ onMounted(async () => {
       departureDate: searchParams.value.departDate,
       returnDate: searchParams.value.returnDate,
       cabinClass: searchParams.value.cabin,
-      passengers: searchParams.value.passengers || [{ type: 'adult', count: 1 }]
+      passengers: {
+        adults: parseInt(searchParams.value.adults) || 1,
+        children: parseInt(searchParams.value.children) || 0,
+        infants: parseInt(searchParams.value.infants) || 0
+      }
     }
     
     console.log('Searching flights with params:', apiParams)
@@ -173,6 +184,58 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function handleModifiedSearch(searchData) {
+  console.log('Modified search submitted:', searchData);
+  
+  // Save updated search parameters to localStorage
+  // No need to manually update localStorage since the BookingSection component already does that
+  
+  // Format parameters for the API
+  const apiParams = {
+    departureCode: searchData.from,
+    destinationCode: searchData.to,
+    departureDate: searchData.departDate,
+    returnDate: searchData.returnDate || null,
+    cabinClass: searchData.cabin,
+    passengers: {
+      adults: parseInt(searchData.adults) || 1,
+      children: parseInt(searchData.children) || 0,
+      infants: parseInt(searchData.infants) || 0
+    }
+  };
+  
+  // Update searchParams in our component state
+  searchParams.value = searchData;
+  
+  // Reset results and start new search
+  loading.value = true;
+  error.value = null;
+  apiErrorDetails.value = null;
+  flights.value = [];
+  
+  // Perform the search with new parameters
+  searchFlights(apiParams)
+    .then(results => {
+      if (results.error) {
+        error.value = 'Error retrieving flight information';
+        apiErrorDetails.value = results.error;
+      } else {
+        flights.value = results.flights;
+        if (flights.value.length === 0) {
+          error.value = 'No flights found for your search criteria';
+        }
+      }
+    })
+    .catch(err => {
+      error.value = 'Failed to fetch flights';
+      apiErrorDetails.value = err.message;
+      console.error('Error fetching flights:', err);
+    })
+    .finally(() => {
+      loading.value = false;
+    });
+}
 
 function selectFlight(flight) {
   // TODO: Navigate to booking page with selected flight
@@ -236,13 +299,99 @@ const formatDuration = (minutes) => {
 
 function retrySearch() {
   // Retry the search with the same parameters
+  loading.value = true;
+  error.value = null;
+  apiErrorDetails.value = null;
   searchFlights({
-    departureCode: searchParams.value.from || '',
-    destinationCode: searchParams.value.to || '',
+    from: searchParams.value.fromCode || searchParams.value.from,
+    to: searchParams.value.toCode || searchParams.value.to,
     departureDate: searchParams.value.departDate,
     returnDate: searchParams.value.returnDate,
-    cabinClass: searchParams.value.cabin,
+    cabinClass: searchParams.value.cabinClass,
     passengers: searchParams.value.passengers || [{ type: 'adult', count: 1 }]
   }).catch(err => console.error('Retry failed:', err))
+}
+
+// Create a computed property for transformed search parameters
+const transformSearchParams = computed(() => {
+  // Get the latest search params directly from localStorage to ensure consistency
+  const storedParams = localStorage.getItem('flightSearchParams');
+  const params = storedParams ? JSON.parse(storedParams) : searchParams.value;
+  
+  console.log('Current search params for BookingSection:', params);
+  
+  // Create properly formatted search params for BookingSection
+  const formattedParams = {
+    // Format locations as objects with the properties BookingSection expects
+    from: { 
+      mainLine: params.fromName || params.from || '',
+      subLine: params.fromSubLine || '',
+      iataCode: params.from || ''
+    },
+    to: {
+      mainLine: params.toName || params.to || '',
+      subLine: params.toSubLine || '',
+      iataCode: params.to || ''
+    },
+    // Always use explicit tripType from localStorage if available
+    tripType: params.tripType || (params.returnDate ? 'return' : 'oneWay'),
+    
+    // Format dates properly for BookingSection
+    dates: params.returnDate ? 
+      [new Date(params.departDate), new Date(params.returnDate)] : 
+      new Date(params.departDate),
+    
+    // Set passenger counts
+    passengers: {
+      adults: parseInt(params.adults) || 1,
+      children: parseInt(params.children) || 0,
+      infants: parseInt(params.infants) || 0
+    },
+    
+    // Use cabinClass directly if available, otherwise map from cabin code
+    cabinClass: params.cabinClass || mapCabinClass(params.cabin)
+  };
+  
+  console.log('Transformed params for BookingSection:', formattedParams);
+  return formattedParams;
+});
+
+// Helper function to convert cabin class code to display name
+function mapCabinClass(cabinCode) {
+  const cabinMap = {
+    'E': 'Economy',
+    'P': 'Premium Economy',
+    'B': 'Business',
+    'F': 'First'
+  };
+  
+  return cabinMap[cabinCode] || 'Economy';
+}
+
+
+function convertSearchDataToApiParams(searchData) {
+  // Convert from BookingSection format to API format
+  return {
+    from: searchData.from.iataCode,
+    to: searchData.to.iataCode,
+    departureDate: searchData.departDate,
+    returnDate: searchData.tripType === 'return' ? searchData.returnDate : null,
+    cabinClass: getCabinClassCode(searchData.cabinClass),
+    passengers: {
+      adults: parseInt(searchData.passengers.adults || 0),
+      children: parseInt(searchData.passengers.children || 0),
+      infants: parseInt(searchData.passengers.infants || 0)
+    }
+  };
+}
+
+function getCabinClassCode(cabinClass) {
+  const classMap = {
+    'Economy': 'E',
+    'Premium Economy': 'P',
+    'Business': 'B',
+    'First': 'F'
+  };
+  return classMap[cabinClass] || 'E';
 }
 </script>

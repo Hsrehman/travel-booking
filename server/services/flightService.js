@@ -8,11 +8,11 @@ import { vibeConfig } from '../config/vibe.js';
  */
 const getPassengerType = (type) => {
   const types = {
-    'adult': 'ADT',
-    'child': 'CHD',
-    'infant': 'INF'
+    'adult': 'adult',
+    'child': 'child',
+    'infant': 'infant'
   };
-  return types[type.toLowerCase()] || 'ADT';
+  return types[type.toLowerCase()] || 'adult';
 };
 
 /**
@@ -30,10 +30,41 @@ const buildXmlRequest = (params) => {
     passengers
   } = params;
 
-  // Build individual passenger elements
-  const passengerElements = passengers.map(p => 
-    `<Passenger Age="${p.age}" />`
-  ).join('\n  ');
+  // Process passengers to array if needed
+  let passengerArray = [];
+  
+  // Check if we're getting a passenger counts object
+  if (passengers && typeof passengers === 'object' && !Array.isArray(passengers)) {
+    // Convert counts to individual passenger objects
+    const { adults = 1, children = 0, infants = 0 } = passengers;
+    
+    // Add adult passengers
+    for (let i = 0; i < adults; i++) {
+      passengerArray.push({ type: 'adult' });
+    }
+    
+    // Add child passengers
+    for (let i = 0; i < children; i++) {
+      passengerArray.push({ type: 'child' });
+    }
+    
+    // Add infant passengers
+    for (let i = 0; i < infants; i++) {
+      passengerArray.push({ type: 'infant' });
+    }
+  } else if (Array.isArray(passengers)) {
+    // Already an array of passengers
+    passengerArray = passengers;
+  } else {
+    // Default: one adult passenger
+    passengerArray = [{ type: 'adult' }];
+  }
+  
+  // Build individual passenger elements with the appropriate type
+  const passengerElements = passengerArray.map(p => {
+    const type = p.type?.toLowerCase() || 'adult';
+    return `<Passenger Type="${getPassengerType(type)}" />`;
+  }).join('\n  ');
 
   const xml = `<?xml version="1.0" encoding="utf-8" ?>
 <FlightSearchReq xmlns="http://vibe.travel">
@@ -76,7 +107,7 @@ export const searchFlights = async (searchParams) => {
       departureDate,
       returnDate,
       cabinClass = 'E',
-      passengers = [{ type: 'adult', age: 30 }]
+      passengers = { adults: 1, children: 0, infants: 0 }
     } = searchParams;
 
     // Debug: Log configuration

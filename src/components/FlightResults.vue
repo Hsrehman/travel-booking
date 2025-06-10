@@ -2,16 +2,6 @@
   <div class="flight-results">
     <!-- Filters and Sort -->
     <div class="controls">
-      <div class="sort-options">
-        <label>Sort by:</label>
-        <select v-model="sortBy" class="sort-select">
-          <option value="price">Price (Low to High)</option>
-          <option value="-price">Price (High to Low)</option>
-          <option value="duration">Duration (Shortest)</option>
-          <option value="departure">Departure (Earliest)</option>
-        </select>
-      </div>
-      
       <button class="filter-toggle" @click="showFilters = !showFilters">
         {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
       </button>
@@ -22,6 +12,19 @@
       <transition name="slide">
         <aside v-show="showFilters" class="filters-panel">
           <h3>Filters</h3>
+          
+          <!-- Sort Options -->
+          <div class="filter-section">
+            <h4>Sort By</h4>
+            <div class="sort-options-filter">
+              <select v-model="sortBy" class="sort-select-filter">
+                <option value="price">Price (Low to High)</option>
+                <option value="-price">Price (High to Low)</option>
+                <option value="duration">Duration (Shortest)</option>
+                <option value="departure">Departure (Earliest)</option>
+              </select>
+            </div>
+          </div>
           
           <!-- Price Range -->
           <div class="filter-section">
@@ -35,8 +38,8 @@
                 step="10"
               />
               <div class="price-labels">
-                <span>${{ minPrice }}</span>
-                <span>${{ filters.maxPrice }}</span>
+                <span>{{ formatPrice(minPrice) }}</span>
+                <span>{{ formatPrice(filters.maxPrice) }}</span>
               </div>
             </div>
           </div>
@@ -122,11 +125,7 @@
             class="flight-card"
             :class="{ 'expanded': expandedFlightId === flight.id }"
           >
-            <!-- Price in top right corner -->
-            <div class="flight-price-corner">
-              <span class="amount">${{ flight.price }}</span>
-              <span class="price-label">per person</span>
-            </div>
+            <!-- Price is now shown in the select button -->
             
             <!-- Airline Info -->
             <div class="airline-info">
@@ -141,11 +140,25 @@
               </div>
             </div>
 
+            <!-- Baggage Indicator (ALWAYS VISIBLE) -->
+            <div class="baggage-indicator highlight">
+              <span class="baggage-icon">🧳</span>
+              <span v-if="!flight.baggageAllowance">Baggage: Loading...</span>
+              <template v-else>
+                <span v-if="flight.baggageAllowance.included">
+                  {{ formatBaggageAllowance(flight.baggageAllowance) }}
+                </span>
+                <span v-else>
+                  {{ flight.baggageAllowance.value || 'Baggage information not available' }}
+                </span>
+              </template>
+            </div>
+
             <!-- Flight Route -->
             <div class="flight-route">
               <div class="departure">
-                <time class="time">{{ formatTime(flight.departureTime) }}</time>
                 <div class="airport">{{ flight.departureAirport }}</div>
+                <time class="time">{{ formatTime(flight.departureTime) }}</time>
               </div>
 
               <div class="route-info">
@@ -166,8 +179,8 @@
               </div>
 
               <div class="arrival">
-                <time class="time">{{ formatTime(flight.arrivalTime) }}</time>
                 <div class="airport">{{ flight.arrivalAirport }}</div>
+                <time class="time">{{ formatTime(flight.arrivalTime) }}</time>
               </div>
             </div>
 
@@ -181,79 +194,21 @@
                   {{ expandedFlightId === flight.id ? 'Hide Details' : 'View Details' }}
                 </button>
                 <button 
-                  class="select-btn"
+                  class="select-btn price-btn"
                   @click="selectFlight(flight)"
                 >
-                  Select
+                  <span class="price-amount">{{ formatPrice(flight.price) }}</span>
                 </button>
               </div>
             </div>
 
             <!-- Expanded Flight Segments -->
             <transition name="expand">
-              <div v-if="expandedFlightId === flight.id" class="flight-segments">
-                <div class="segment-divider">
-                  <span>Flight Segments</span>
-                </div>
-                
-                <!-- Group segments by date -->
-                <template v-if="flight.segments && flight.segments.length > 0">
-                  <template v-for="(segment, index) in flight.segments" :key="index">
-                    <!-- Date heading -->
-                    <div v-if="index === 0 || new Date(segment.departureTime).toDateString() !== new Date(flight.segments[index-1].departureTime).toDateString()" class="date-heading">
-                      {{ formatDate(segment.departureTime) }}
-                    </div>
-                    
-                    <!-- Segment Details -->
-                    <div class="segment-card">
-                      <div class="airline-row">
-                        <div class="segment-airline">
-                          <img 
-                            :src="getAirlineLogo(segment.airline)" 
-                            :alt="segment.airline"
-                            class="segment-airline-logo"
-                          />
-                          <span class="segment-flight-number">{{ segment.airline }} {{ segment.flightNumber }}</span>
-                        </div>
-                        
-                        <div class="segment-route">
-                          <div class="segment-departure">
-                            <div class="segment-time">{{ formatTime(segment.departureTime) }}</div>
-                            <div class="segment-airport">{{ segment.from }}</div>
-                          </div>
-                          
-                          <div class="segment-duration">
-                            <div class="duration-label">{{ formatDuration(new Date(segment.arrivalTime) - new Date(segment.departureTime)) }}</div>
-                            <div class="duration-line"></div>
-                          </div>
-                          
-                          <div class="segment-arrival">
-                            <div class="segment-time">
-                              {{ formatTime(segment.arrivalTime) }}
-                              <span v-if="new Date(segment.arrivalTime).getDate() > new Date(segment.departureTime).getDate()" class="next-day">+{{ new Date(segment.arrivalTime).getDate() - new Date(segment.departureTime).getDate() }}D</span>
-                            </div>
-                            <div class="segment-airport">{{ segment.to }}</div>
-                          </div>
-                        </div>
-                        
-                        <div class="segment-class">
-                          <span class="label">Class:</span>
-                          <span>{{ segment.class }}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- Layover information between segments -->
-                    <div class="layover-container" v-if="index < flight.segments.length - 1">
-                      <div class="layover-line"></div>
-                      <div class="layover-badge">
-                        {{ getLayoverDuration(segment.arrivalTime, flight.segments[index+1].departureTime) }} layover in {{ segment.to }}
-                      </div>
-                      <div class="layover-line"></div>
-                    </div>
-
-                  </template>
-                </template>
+              <div v-if="expandedFlightId === flight.id" class="flight-segments-container">
+                <FlightSegments 
+                  v-if="flight.segments && flight.segments.length > 0" 
+                  :segments="formatSegments(flight.segments)" 
+                />
                 
                 <!-- Fallback when no segments data is available -->
                 <div v-else class="no-segments-fallback">
@@ -289,6 +244,20 @@
                         <span class="label">{{ flight.stops === 1 ? '1 stop' : `${flight.stops} stops` }}</span>
                         <span>Flight details not available</span>
                       </div>
+                      
+                      <!-- Baggage Allowance Information - Always shown -->
+                      <div class="baggage-allowance highlight">
+                        <span class="baggage-icon">🧳</span>
+                        <span class="baggage-info">{{ flight.baggageAllowance ? formatBaggageAllowance(flight.baggageAllowance) : 'Baggage allowance placeholder - implementation active' }}</span>
+                        
+                        <!-- Debug Information -->
+                        <div class="debug-info">
+                          <details>
+                            <summary>API Debug Info</summary>
+                            <pre>{{ JSON.stringify(flight.baggageAllowance || { status: 'No data from API' }, null, 2) }}</pre>
+                          </details>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -303,6 +272,9 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import FlightSegments from './FlightSegments.vue';
+import airportData from '../data/airports.json';
+import { formatPrice } from '../helpers/formatters';
 
 const props = defineProps({
   flights: {
@@ -455,9 +427,9 @@ const formatTime = (timeValue) => {
     }
     
     return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: false
+      hour12: true
     });
   } catch (err) {
     console.error('Error formatting time:', err);
@@ -522,6 +494,50 @@ const resetFilters = () => {
   };
 };
 
+const formatSegments = (segments) => {
+  return segments.map(segment => ({
+    departureTime: segment.departureTime,
+    arrivalTime: segment.arrivalTime,
+    origin: `${segment.from} (${getAirportCity(segment.from)})`,
+    destination: `${segment.to} (${getAirportCity(segment.to)})`,
+    flightNumber: `${segment.airline || ''}${segment.flightNumber || ''}`.trim(),
+    duration: Math.floor((new Date(segment.arrivalTime) - new Date(segment.departureTime)) / (1000 * 60)),
+    cabinClass: segment.class || 'Economy'
+  }));
+};
+
+/**
+ * Format baggage allowance information for display
+ * @param {Object} baggageAllowance - Baggage allowance object
+ * @returns {string} Formatted baggage allowance string
+ */
+const formatBaggageAllowance = (baggageAllowance) => {
+  if (!baggageAllowance) return 'Baggage information not available';
+  if (baggageAllowance.type === 'default' || !baggageAllowance.included) {
+    return 'Baggage information not available';
+  }
+  const { type, value, units } = baggageAllowance;
+  if (type === 'weight') {
+    return `Baggage allowance: ${value} ${units}`;
+  } else if (type === 'number') {
+    return `Baggage allowance: ${value} ${parseInt(value) === 1 ? 'piece' : 'pieces'}`;
+  } else {
+    return `Baggage allowance: ${value} ${units}`.trim();
+  }
+};
+
+/**
+ * Get airport city by IATA code
+ * @param {string} code - IATA airport code
+ * @returns {string} City name or empty string if not found
+ */
+function getAirportCity(code) {
+  if (!code) return '';
+  
+  const airport = airportData.find(a => a.iata === code);
+  return airport ? airport.city || airport.name : '';
+}
+
 // Initialize maxPrice filter
 if (props.flights.length) {
   filters.value.maxPrice = maxPrice.value;
@@ -547,25 +563,32 @@ if (props.flights.length) {
 .sort-options {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.sort-options label {
-  font-weight: 500;
-  color: #4b5563;
+  margin-right: 24px;
 }
 
 .sort-select {
   padding: 8px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  background-color: white;
+  margin-left: 8px;
   font-size: 14px;
-  min-width: 180px;
-  color: #374151;
-  outline: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
+  background-color: white;
+}
+
+.sort-options-filter {
+  display: flex;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.sort-select-filter {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  color: #4b5563;
 }
 
 .sort-select:focus {
@@ -724,6 +747,88 @@ if (props.flights.length) {
   background-color: #2563eb;
 }
 
+.segment-class {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.baggage-allowance {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.baggage-allowance.highlight,
+.baggage-indicator.highlight {
+  background-color: #fef3c7;
+  border: 1px solid #fbbf24;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.baggage-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 8px 0;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.baggage-icon {
+  font-size: 16px;
+}
+
+.baggage-info {
+  font-size: 14px;
+  color: #374151;
+}
+
+.api-status {
+  font-size: 12px;
+  color: #047857;
+  margin-left: 6px;
+}
+
+.debug-info {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.debug-info details {
+  background-color: #ecfdf5;
+  border: 1px solid #d1fae5;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.debug-info summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: #047857;
+  font-weight: 500;
+  padding: 2px 4px;
+}
+
+.debug-info pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: #334155;
+  overflow-x: auto;
+}
+
 .flight-cards {
   display: flex;
   flex-direction: column;
@@ -815,13 +920,14 @@ if (props.flights.length) {
 }
 
 .time {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 400;
   color: #111827;
 }
 
 .airport {
-  font-size: 14px;
+  font-size: 20px;
+  font-weight: 600;
   color: #4b5563;
   margin-top: 4px;
 }
@@ -930,6 +1036,54 @@ if (props.flights.length) {
 .view-details-btn:hover {
   background-color: #f8f9fa;
   border-color: #c2e0ff;
+}
+
+.price-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.price-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.price-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+/* Add a subtle shine effect on hover */
+.price-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(30deg);
+  transition: 0.6s;
+  opacity: 0;
+}
+
+.price-btn:hover::after {
+  left: 100%;
+  opacity: 1;
+}
+
+.price-amount {
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  font-size: 1.05em;
 }
 
 .view-details-btn:active {
