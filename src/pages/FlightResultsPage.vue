@@ -84,7 +84,7 @@ const searchParams = ref({})
 
 // Process flights data for FlightResults component
 const processedFlights = computed(() => {
-  return flights.value.map(flight => {
+  return flights.value.map((flight, index) => {
     // Get first leg for departure, last leg for arrival
     const firstLeg = flight.outboundFlights[0] || {};
     const lastLeg = flight.outboundFlights[flight.outboundFlights.length - 1] || {};
@@ -107,7 +107,7 @@ const processedFlights = computed(() => {
     });
     
     return {
-      id: flight.id,
+      id: flight.id || flight.ID || `flight-${index}`, // Ensure unique ID with fallbacks
       airlineCode: firstLeg.airlineCode,
       airlineName: getAirlineName(firstLeg.airlineCode),
       flightNumber: firstLeg.flightNumber,

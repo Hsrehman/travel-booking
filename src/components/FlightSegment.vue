@@ -41,11 +41,58 @@
         {{ formatDuration(segment.layover.duration) }} Layover in {{ segment.layover.airport }}
       </div>
     </div>
+
+    <!-- Debug Baggage Data -->
+    <div v-if="segment.baggageAllowance" style="display: none;">
+      {{ console.log('Baggage Allowance:', segment.baggageAllowance) }}
+    </div>
+    
+    <!-- Baggage Info -->
+    <div v-if="segment.baggageAllowance" class="baggage-section">
+      <div class="baggage-header" @click="isBaggageExpanded = !isBaggageExpanded">
+        <span class="baggage-icon">🧳</span>
+        <span class="baggage-title">Baggage Allowance</span>
+        <span class="expand-icon" :class="{ 'expanded': isBaggageExpanded }">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </div>
+      <transition name="baggage-slide">
+        <div v-if="isBaggageExpanded" class="baggage-details">
+          <!-- Direct baggage allowance (simple format) -->
+          <div v-if="!segment.baggageAllowance.cabin && !segment.baggageAllowance.checked" class="baggage-item">
+            <span class="baggage-type">🧳 Baggage</span>
+            <span class="baggage-allowance">{{ formatBaggageAllowance(segment.baggageAllowance) }}</span>
+          </div>
+          
+          <!-- Detailed baggage allowance (nested format) -->
+          <template v-else>
+            <div v-if="segment.baggageAllowance.cabin" class="baggage-item">
+              <span class="baggage-type">🎒 Cabin</span>
+              <span class="baggage-allowance">{{ formatBaggageAllowance(segment.baggageAllowance.cabin) }}</span>
+            </div>
+            <div v-if="segment.baggageAllowance.checked" class="baggage-item">
+              <span class="baggage-type">🧳 Checked</span>
+              <span class="baggage-allowance">{{ formatBaggageAllowance(segment.baggageAllowance.checked) }}</span>
+            </div>
+            <div v-if="segment.baggageAllowance.additional" class="baggage-item">
+              <span class="baggage-type">🏷️ Additional</span>
+              <span class="baggage-allowance">{{ formatBaggageAllowance(segment.baggageAllowance.additional) }}</span>
+            </div>
+          </template>
+          
+          <div class="baggage-note">
+            <small>* Excess baggage fees may apply</small>
+          </div>
+        </div>
+      </transition>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
   segment: {
@@ -74,9 +121,56 @@ const formatSegmentDate = (dateTime) => {
   return date.toLocaleDateString('en-US', options).toUpperCase();
 };
 
+const isBaggageExpanded = ref(false);
+
 const getAirlineCode = (flightNumber) => {
   // Extract airline code from flight number (first 2 characters)
   return flightNumber ? flightNumber.substring(0, 2) : '--';
+};
+
+const formatBaggageAllowance = (baggage) => {
+  if (!baggage) return 'Contact airline';
+  
+  // Handle string format
+  if (typeof baggage === 'string') return baggage;
+  
+  // Handle object with type and value
+  if (baggage.type && baggage.value !== undefined) {
+    // Handle type="number" - indicates number of bags
+    if (baggage.type === 'number') {
+      const bagCount = parseInt(baggage.value, 10);
+      return `${bagCount} ${bagCount === 1 ? 'bag' : 'bags'}`;
+    }
+    
+    // Handle type="weight" - indicates weight with units
+    if (baggage.type === 'weight') {
+      const weight = baggage.value;
+      const units = baggage.units || 'kg';
+      return `${weight} ${units}`;
+    }
+    
+    // Handle other types (cabin, checked, etc.)
+    const typeMap = {
+      'cabin': '🎒 Cabin',
+      'checked': '🧳 Checked',
+      'additional': '🏷️ Additional',
+      'default': 'Baggage'
+    };
+    
+    const typeLabel = typeMap[baggage.type] || baggage.type;
+    const value = baggage.value || '';
+    const units = baggage.units ? ` ${baggage.units}` : '';
+    
+    return `${value}${units}`.trim();
+  }
+  
+  // Handle simple object with just value and units
+  if (baggage.value !== undefined && baggage.units) {
+    return `${baggage.value} ${baggage.units}`.trim();
+  }
+  
+  // Fallback for any other format
+  return 'Contact airline';
 };
 </script>
 
@@ -210,13 +304,95 @@ const getAirlineCode = (flightNumber) => {
   animation: fly 2s ease-in-out infinite alternate;
 }
 
-.layover {
+.layover, .baggage-section {
   background: #fffaf0;
   padding: 12px 16px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   border-top: 1px solid #feebc8;
+}
+
+.baggage-section {
+  background: #f8f9fa;
+  border-top: 1px solid #edf2f7;
+  padding: 0;
+  cursor: pointer;
+}
+
+.baggage-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 8px;
+}
+
+.baggage-icon {
+  font-size: 16px;
+}
+
+.baggage-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+  flex-grow: 1;
+}
+
+.expand-icon {
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.baggage-details {
+  padding: 0 16px 12px 16px;
+  border-top: 1px solid #edf2f7;
+  margin-top: -4px;
+  padding-top: 12px;
+}
+
+.baggage-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.baggage-type {
+  color: #4a5568;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.baggage-allowance {
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.baggage-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #a0aec0;
+  text-align: right;
+}
+
+.baggage-slide-enter-active,
+.baggage-slide-leave-active {
+  transition: all 0.3s ease;
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.baggage-slide-enter-from,
+.baggage-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 .layover-icon {

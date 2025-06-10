@@ -120,10 +120,10 @@
 
         <div v-else class="flight-cards">
           <div 
-            v-for="flight in sortedFlights" 
-            :key="flight.id" 
+            v-for="(flight, idx) in sortedFlights" 
+            :key="idx" 
             class="flight-card"
-            :class="{ 'expanded': expandedFlightId === flight.id }"
+            :class="{ 'expanded': expandedFlightId === idx }"
           >
             <!-- Price is now shown in the select button -->
             
@@ -140,19 +140,7 @@
               </div>
             </div>
 
-            <!-- Baggage Indicator (ALWAYS VISIBLE) -->
-            <div class="baggage-indicator highlight">
-              <span class="baggage-icon">🧳</span>
-              <span v-if="!flight.baggageAllowance">Baggage: Loading...</span>
-              <template v-else>
-                <span v-if="flight.baggageAllowance.included">
-                  {{ formatBaggageAllowance(flight.baggageAllowance) }}
-                </span>
-                <span v-else>
-                  {{ flight.baggageAllowance.value || 'Baggage information not available' }}
-                </span>
-              </template>
-            </div>
+            <!-- Baggage information has been moved to the expanded flight segment view -->
 
             <!-- Flight Route -->
             <div class="flight-route">
@@ -165,13 +153,13 @@
                 <div class="duration">{{ formatDuration(flight.duration) }}</div>
                 <div 
                   class="route-line"
-                  @click="flight.stops > 0 && toggleFlightDetails(flight.id)"
+                  @click="flight.stops > 0 && toggleFlightDetails(idx)"
                   :class="{ 'clickable': flight.stops > 0 }"
                 >
                   <span 
                     class="stops-indicator"
                     :class="{ 'non-stop': flight.stops === 0 }"
-                    @click.stop="flight.stops > 0 && toggleFlightDetails(flight.id)"
+                    @click.stop="flight.stops > 0 && toggleFlightDetails(idx)"
                   >
                     {{ flight.stops === 0 ? 'Non-stop' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}` }}
                   </span>
@@ -189,9 +177,9 @@
               <div class="action-buttons">
                 <button 
                   class="view-details-btn"
-                  @click="toggleFlightDetails(flight.id)"
+                  @click="toggleFlightDetails(idx)"
                 >
-                  {{ expandedFlightId === flight.id ? 'Hide Details' : 'View Details' }}
+                  {{ expandedFlightId === idx ? 'Hide Details' : 'View Details' }}
                 </button>
                 <button 
                   class="select-btn price-btn"
@@ -204,10 +192,10 @@
 
             <!-- Expanded Flight Segments -->
             <transition name="expand">
-              <div v-if="expandedFlightId === flight.id" class="flight-segments-container">
+              <div v-if="expandedFlightId === idx" class="flight-segments-container">
                 <FlightSegments 
                   v-if="flight.segments && flight.segments.length > 0" 
-                  :segments="formatSegments(flight.segments)" 
+                  :segments="formatSegments(flight.segments, flight.baggageAllowance)" 
                 />
                 
                 <!-- Fallback when no segments data is available -->
@@ -452,8 +440,8 @@ const getAirlineLogo = (code) => {
   return `https://www.gstatic.com/flights/airline_logos/70px/${code}.png`;
 };
 
-const toggleFlightDetails = (flightId) => {
-  expandedFlightId.value = expandedFlightId.value === flightId ? null : flightId;
+const toggleFlightDetails = (idx) => {
+  expandedFlightId.value = expandedFlightId.value === idx ? null : idx;
 };
 
 const selectFlight = (flight) => {
@@ -494,15 +482,18 @@ const resetFilters = () => {
   };
 };
 
-const formatSegments = (segments) => {
-  return segments.map(segment => ({
+const formatSegments = (segments, baggageAllowance) => {
+  return segments.map((segment, index) => ({
     departureTime: segment.departureTime,
     arrivalTime: segment.arrivalTime,
     origin: `${segment.from} (${getAirportCity(segment.from)})`,
     destination: `${segment.to} (${getAirportCity(segment.to)})`,
     flightNumber: `${segment.airline || ''}${segment.flightNumber || ''}`.trim(),
     duration: Math.floor((new Date(segment.arrivalTime) - new Date(segment.departureTime)) / (1000 * 60)),
-    cabinClass: segment.class || 'Economy'
+    cabinClass: segment.class || 'Economy',
+    // Only add baggageAllowance to the first segment for now
+    // This can be adjusted if different segments have different baggage allowances
+    baggageAllowance: index === 0 ? baggageAllowance : null
   }));
 };
 
